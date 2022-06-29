@@ -19,11 +19,12 @@ type User struct {
 }
 
 func Perform(args Arguments, writer io.Writer) error {
-	if _, ok := args["operation"]; !ok {
-		return errors.New("-operation flag not found")
+	fmt.Println(args["operation"])
+	if _, ok := args["operation"]; !ok || args["operation"] == "" {
+		return errors.New("-operation flag has to be specified")
 	}
-	if _, ok := args["fileName"]; !ok {
-		return errors.New("-fileName flag not found")
+	if _, ok := args["fileName"]; !ok || args["fileName"] == "" {
+		return errors.New("-fileName flag has to be specified")
 	}
 	file, err := os.OpenFile(args["fileName"], os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
@@ -53,14 +54,14 @@ func Perform(args Arguments, writer io.Writer) error {
 		}
 
 	}
-	return nil
+	return errors.New("Operation abcd not allowed!")
 }
 
 func main() {
 	err := Perform(parseArgs(), os.Stdout)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 }
 
@@ -76,7 +77,7 @@ func parseArgs() Arguments {
 
 func add(file *os.File, arg Arguments) error {
 	if !json.Valid([]byte(arg["item"])) {
-		return errors.New("Bad json")
+		return errors.New("-item flag has to be specified")
 	}
 
 	var user Arguments
