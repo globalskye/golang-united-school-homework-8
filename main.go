@@ -15,7 +15,7 @@ type Arguments map[string]string
 type User struct {
 	Id    string `json:"id"`
 	Email string `json:"email"`
-	Age   string `json:"age"`
+	Age   uint   `json:"age"`
 }
 
 func Perform(args Arguments, writer io.Writer) error {
@@ -41,7 +41,7 @@ func Perform(args Arguments, writer io.Writer) error {
 			return err
 		}
 	case "findById":
-		user, err := find(file, args)
+		user, err := find(file, args["id"])
 		if err != nil {
 			return err
 		}
@@ -53,8 +53,12 @@ func Perform(args Arguments, writer io.Writer) error {
 			return err
 		}
 
+	default:
+
+		return fmt.Errorf("Operation %s not allowed!", args["operation"])
 	}
-	return errors.New("Operation abcd not allowed!")
+
+	return nil
 }
 
 func main() {
@@ -76,14 +80,20 @@ func parseArgs() Arguments {
 }
 
 func add(file *os.File, arg Arguments) error {
+	file.Seek(0, 0)
 	if !json.Valid([]byte(arg["item"])) {
 		return errors.New("-item flag has to be specified")
 	}
 
-	var user Arguments
+	us, _ := find(file, arg["id"])
+	if us != nil {
+		return fmt.Errorf("Item with id %s already exists", arg["id"])
+	}
+
+	var user User
 	err := json.Unmarshal([]byte(arg["item"]), &user)
 	if err != nil {
-		return fmt.Errorf("Failed to unmarshal json, %w", err)
+		return errors.New("-id flag has to be specified")
 	}
 
 	data, err := json.Marshal(user)
@@ -96,7 +106,7 @@ func add(file *os.File, arg Arguments) error {
 	return nil
 }
 
-func find(file *os.File, arg Arguments) ([]byte, error) {
+func find(file *os.File, id string) ([]byte, error) {
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read file, %w", err)
@@ -105,10 +115,10 @@ func find(file *os.File, arg Arguments) ([]byte, error) {
 
 	err = json.Unmarshal(data, &users)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to unmarshal json, %w", err)
+		return nil, errors.New("-id flag has to be specified")
 	}
 	for _, v := range users {
-		if v.Id == arg["id"] {
+		if v.Id == id {
 			bytes, err := json.Marshal(v)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to marshal json, %w", err)
@@ -116,6 +126,7 @@ func find(file *os.File, arg Arguments) ([]byte, error) {
 			return bytes, nil
 		}
 	}
+
 	return nil, errors.New("user not found")
 }
 
@@ -132,8 +143,9 @@ func remove(file *os.File, arg Arguments) error {
 
 	err = json.Unmarshal(data, &users)
 	if err != nil {
-		return fmt.Errorf("Failed to unmarshal json, %w", err)
+		return errors.New("-id flag has to be specified")
 	}
+
 	for i, v := range users {
 		if v.Id == arg["id"] {
 			users = append(users[:i], users[i+1:]...)
@@ -144,8 +156,8 @@ func remove(file *os.File, arg Arguments) error {
 	if err != nil {
 		return fmt.Errorf("Failed to marshal json, %w", err)
 	}
-	file.Write(buffer)
 	file.Truncate(0)
-	//file.Seek(0, 0)
+	file.Write(buffer)
+	file.Seek(0, 0)
 	return nil
 }
