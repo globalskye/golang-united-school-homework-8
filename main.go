@@ -36,21 +36,34 @@ func Perform(args Arguments, writer io.Writer) error {
 	case "list":
 		list(file, writer)
 	case "add":
+		if !json.Valid([]byte(args["item"])) || args["item"] == "" {
+			return errors.New("-item flag has to be specified")
+		}
+
 		err := add(file, args)
 		if err != nil {
-			return err
+			writer.Write([]byte(err.Error()))
+			break
 		}
+
 	case "findById":
+		if !json.Valid([]byte(args["id"])) || args["id"] == "" {
+			return errors.New("-id flag has to be specified")
+		}
 		user, err := find(file, args["id"])
 		if err != nil {
-			return err
+			writer.Write([]byte(err.Error()))
 		}
 		writer.Write(user)
 		fmt.Println("findById")
 	case "remove":
+		if !json.Valid([]byte(args["id"])) || args["id"] == "" {
+			return errors.New("-id flag has to be specified")
+		}
+
 		err := remove(file, args)
 		if err != nil {
-			return err
+			writer.Write([]byte(err.Error()))
 		}
 
 	default:
@@ -80,33 +93,44 @@ func parseArgs() Arguments {
 }
 
 func add(file *os.File, arg Arguments) error {
-	file.Seek(0, 0)
-	if !json.Valid([]byte(arg["item"])) {
-		return errors.New("-item flag has to be specified")
-	}
-
-	us, _ := find(file, arg["id"])
-	if us != nil {
-		return fmt.Errorf("Item with id %s already exists", arg["id"])
-	}
 
 	var user User
 	err := json.Unmarshal([]byte(arg["item"]), &user)
 	if err != nil {
-		return errors.New("-id flag has to be specified")
+		return err
+	}
+	us, _ := find(file, user.Id)
+	if us != nil {
+		return fmt.Errorf("Item with id %s already exists", user.Id)
 	}
 
-	data, err := json.Marshal(user)
+	var users []User
+	allUsersBytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		return fmt.Errorf("Failed to marshal json, %w", err)
+		return err
 	}
 
-	file.Write(data)
+	err = json.Unmarshal(allUsersBytes, &users)
+	if err != nil {
+		return err
+	}
+
+	users = append(users, user)
+	newUsersBytes, err := json.Marshal(users)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(newUsersBytes)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func find(file *os.File, id string) ([]byte, error) {
+	defer file.Seek(0, 0)
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read file, %w", err)
@@ -127,7 +151,7 @@ func find(file *os.File, id string) ([]byte, error) {
 		}
 	}
 
-	return nil, errors.New("user not found")
+	return nil, errors.New("")
 }
 
 func list(file *os.File, writer io.Writer) {
