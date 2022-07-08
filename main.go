@@ -60,7 +60,10 @@ func Perform(args Arguments, writer io.Writer) error {
 		if !json.Valid([]byte(args["id"])) || args["id"] == "" {
 			return errors.New("-id flag has to be specified")
 		}
-
+		val, _ := find(file, args["id"])
+		if val == nil {
+			writer.Write([]byte(fmt.Errorf("Item with id %s not found", args["id"]).Error()))
+		}
 		err := remove(file, args)
 		if err != nil {
 			writer.Write([]byte(err.Error()))
