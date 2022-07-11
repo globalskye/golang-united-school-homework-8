@@ -26,10 +26,11 @@ func Perform(args Arguments, writer io.Writer) error {
 	if _, ok := args["fileName"]; !ok || args["fileName"] == "" {
 		return errors.New("-fileName flag has to be specified")
 	}
-	file, err := os.OpenFile(args["fileName"], os.O_CREATE|os.O_RDWR, 0777)
+	file, err := os.OpenFile(args["fileName"], os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to open/create file, %w", err)
 	}
+
 	defer file.Close()
 
 	switch args["operation"] {
@@ -107,29 +108,19 @@ func add(file *os.File, arg Arguments) error {
 		return fmt.Errorf("Item with id %s already exists", user.Id)
 	}
 
-	var users []User
-	allUsersBytes, err := ioutil.ReadAll(file)
+	userBytes, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(allUsersBytes, &users)
-	if err != nil {
-		return err
-	}
+	_, err = file.Write(userBytes)
 
-	users = append(users, user)
-	newUsersBytes, err := json.Marshal(users)
-	if err != nil {
-		return err
-	}
-
-	_, err = file.Write(newUsersBytes)
 	if err != nil {
 		return err
 	}
 
 	return nil
+
 }
 
 func find(file *os.File, id string) ([]byte, error) {
@@ -184,7 +175,8 @@ func remove(file *os.File, arg Arguments) error {
 		return fmt.Errorf("Failed to marshal json, %w", err)
 	}
 	file.Truncate(0)
-	file.Write(buffer)
 	file.Seek(0, 0)
+	file.Write(buffer)
+
 	return nil
 }
