@@ -26,7 +26,7 @@ func Perform(args Arguments, writer io.Writer) error {
 	if _, ok := args["fileName"]; !ok || args["fileName"] == "" {
 		return errors.New("-fileName flag has to be specified")
 	}
-	file, err := os.OpenFile(args["fileName"], os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(args["fileName"], os.O_CREATE|os.O_RDWR, 0777)
 	if err != nil {
 		return fmt.Errorf("Failed to open/create file, %w", err)
 	}
@@ -108,12 +108,19 @@ func add(file *os.File, arg Arguments) error {
 		return fmt.Errorf("Item with id %s already exists", user.Id)
 	}
 
-	userBytes, err := json.Marshal(user)
+	allUserBytes, err := ioutil.ReadAll(file)
 	if err != nil {
 		return err
 	}
 
-	_, err = file.Write(userBytes)
+	var users []User
+	_ = json.Unmarshal(allUserBytes, &users)
+
+	users = append(users, user)
+
+	usersBytes, _ := json.Marshal(users)
+
+	_, err = file.Write(usersBytes)
 
 	if err != nil {
 		return err
